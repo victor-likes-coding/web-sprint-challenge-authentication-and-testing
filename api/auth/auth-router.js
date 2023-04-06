@@ -1,7 +1,34 @@
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const { register, findBy } = require('./model');
 const router = require('express').Router();
 
-router.post('/register', (req, res) => {
-  res.end('implement register, please!');
+router.post('/register', async (req, res, next) => {
+  const { username, password } = req.body;
+  if (!username || !password) {
+    return next({ status: 400, message: 'username and password required' });
+  }
+  // if username is already taken
+  try {
+    const user = await findBy({ username });
+    if (user) {
+      return next({ status: 400, message: 'username taken' });
+    }
+  } catch (err) {
+    return next(err);
+  }
+
+  const hash = bcrypt.hashSync(password, 8);
+  try {
+    // successful so generate hash and token
+    const result = await register({ username, password: hash });
+
+    res.status(201).json({
+      ...result,
+    });
+  } catch (err) {
+    next(err);
+  }
   /*
     IMPLEMENT
     You are welcome to build additional middlewares to help with the endpoint's functionality.
@@ -29,8 +56,44 @@ router.post('/register', (req, res) => {
   */
 });
 
-router.post('/login', (req, res) => {
-  res.end('implement login, please!');
+router.post('/login', async (req, res, next) => {
+  const { username, password } = req.body;
+
+  if (!username || !password) {
+    return next({ status: 400, message: 'username and password required' });
+  }
+
+  // on username not existing in db or password being incorrect
+  try {
+    const user = await findBy({ username });
+    if (!user) {
+      return next({ status: 401, message: 'invalid credentials' });
+    }
+
+    const passwordValid = bcrypt.compareSync(password, user.password);
+    if (!passwordValid) {
+      return next({ status: 401, message: 'invalid credentials' });
+    }
+    // on success
+    // generate token
+    const token = jwt.sign(
+      {
+        subject: user.id,
+        username: user.username,
+      },
+      process.env.JWT_SECRET || 'shh',
+      {
+        expiresIn: '1d',
+      }
+    );
+
+    res.status(200).json({
+      message: `welcome, ${user.username}`,
+      token,
+    });
+  } catch (err) {
+    return next(err);
+  }
   /*
     IMPLEMENT
     You are welcome to build additional middlewares to help with the endpoint's functionality.
