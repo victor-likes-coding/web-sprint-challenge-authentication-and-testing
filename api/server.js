@@ -13,7 +13,23 @@ server.use(helmet());
 server.use(cors());
 server.use(express.json());
 
+server.get('/', (req, res) => {
+  res.json({ api: 'up' });
+});
+
 server.use('/api/auth', authRouter);
 server.use('/api/jokes', restrict, jokesRouter); // only logged-in users should have access!
-
+//eslint-disable-next-line
+server.use((err, req, res, next) => {
+  // console.warn(
+  //   `[${req.method}]: ${req.url} -- ${err.message} -- ${
+  //     Object.keys(req.body)
+  //       .map((key) => `${key}=${req.body[key]}`)
+  //       .join('&') || '{}'
+  //   }`
+  // );
+  res.status(err.status || 500).json({
+    message: err.message,
+  });
+});
 module.exports = server;
